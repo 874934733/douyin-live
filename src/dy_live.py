@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import signal
+from threading import Thread
 
 import httpx
 from fastapi import websockets
@@ -47,6 +48,9 @@ live_stream_url = ""
 start_time = time.time()
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0'
+
+ws_instance = None
+ping_thread = None  # 用于存储心跳线程的引用
 
 
 def onMessage(ws: websocket.WebSocketApp, message: bytes):
@@ -268,8 +272,10 @@ def onClose(ws, a, b):
 
 
 def onOpen(ws):
-    _thread.start_new_thread(ping, (ws,))
-    logger.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + ']')
+    global ping_thread
+    ping_thread = Thread(target=ping, args=(ws,))
+    ping_thread.start()
+    logging.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + ']')
 
 
 # 发送ping心跳包
@@ -279,7 +285,7 @@ def ping(ws):
         obj.payloadType = 'hb'
         data = obj.SerializeToString()
         ws.send(data, websocket.ABNF.OPCODE_BINARY)
-        logger.info('[ping] [💗发送ping心跳] [房间Id：' + liveRoomId + '] ====> 房间🏖标题【' + liveRoomTitle + '】')
+        logging.info('[ping] [💗发送ping心跳] [房间Id：' + liveRoomId + '] ====> 房间🏖标题【' + liveRoomTitle + '】')
         time.sleep(10)
 
 
@@ -291,22 +297,27 @@ def wssServerStart(wsurl):
     }
     logging.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
-    ws = websocket.WebSocketApp(
+    ws_instance = websocket.WebSocketApp(
         wsurl, on_message=onMessage, on_error=onError, on_close=onClose,
         on_open=onOpen,
         header=h
     )
-    ws.run_forever()
+    ws_instance.run_forever()
 
 
-def stopWSServer():
-    global ws_instance
+# 停止 WebSocket 服务器
+async def stopWSServer():
+    global ws_instance, ping_thread
     if ws_instance is not None:
         ws_instance.close()
-        logger.info("WebSocket server stopped.")
+        logging.info("WebSocket server stopped.")
         ws_instance = None
-        logger.info("停止WebSocket服务")
+        logging.info("WebSocket service stopped.")
 
+        # 等待心跳线程结束
+        if ping_thread is not None and ping_thread.is_alive():
+            ping_thread.join()
+            logging.info("Heartbeat thread stopped.")
 
 def get_user_unique_id():
     return str(random.randint(7300000000000000000, 7999999999999999999))
@@ -364,7 +375,8 @@ async def parseLiveRoomInfo(url):
         cookies_dict = dict(res.cookies)
         ttwid = cookies_dict.get('ttwid')
         res = res.text
-        res_room_info = re.search(r'room\\":{.*\\"id_str\\":\\"(\d+)\\".*,\\"status\\":(\d+).*"title\\":\\"([^"]*)\\"', res)
+        res_room_info = re.search(r'room\\":{.*\\"id_str\\":\\"(\d+)\\".*,\\"status\\":(\d+).*"title\\":\\"([^"]*)\\"',
+                                  res)
         if res_room_info:
             room_status = res_room_info.group(2)
             room_title = res_room_info.group(3)
@@ -439,7 +451,6 @@ async def parseLiveRoomInfo(url):
         return {"code": room_status, "message": "获取直播间信息成功"}
 
 
-
 async def connect_to_websocket(wss_url, ttwid, user_agent):
     try:
         headers = {
@@ -453,19 +464,19 @@ async def connect_to_websocket(wss_url, ttwid, user_agent):
 
 
 async def wssServerStart(wsurl):
-    # websocket.enableTrace(False)
+    global ws_instance
     h = {
         'cookie': 'ttwid=' + ttwid,
         'user-agent': USER_AGENT,
     }
     logger.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
-    ws = websocket.WebSocketApp(
+    ws_instance = websocket.WebSocketApp(
         wsurl, on_message=onMessage, on_error=onError, on_close=onClose,
         on_open=onOpen,
         header=h
     )
-    ws.run_forever()
+    ws_instance.run_forever()
 
 
 def parseLiveRoomUrl(url):

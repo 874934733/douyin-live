@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from distutils.command.config import config
 from logging import Logger
 
 from fastapi import FastAPI
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 
 from config import LIVE_ROOM_URL
 from src import dy_live
-from src.dy_live import parseLiveRoomInfo
+from src.dy_live import parseLiveRoomInfo, stopWSServer
 from src.utils.common import init_global
 from src.utils.http_send import send_start
 
@@ -36,7 +37,9 @@ async def receive_code(code_request: CodeRequest):
     # 使用线程池执行同步的 send_start 函数
     # await asyncio.get_running_loop().run_in_executor(executor, send_start)
     # 在config.py配置中修改直播地址: LIVE_ROOM_URL
-    live_status = await parseLiveRoomInfo(LIVE_ROOM_URL)
+    config.LIVE_ROOM_URL = f"https://live.douyin.com/{code}"
+    logging.info(config.LIVE_ROOM_URL)
+    live_status = await parseLiveRoomInfo(config.LIVE_ROOM_URL)
     logging.info(live_status)
     # if live_status.get("status") == "4":
         # 如果直播已结束，返回特定的消息
@@ -44,6 +47,11 @@ async def receive_code(code_request: CodeRequest):
 
     return live_status
 
+
+@app.post("/stop_wss_server")
+async def stop_wss_server():
+    await stopWSServer()
+    return {"message": "直播已结束"}
 
 if __name__ == '__main__':
     # 在config.py配置中修改直播地址: LIVE_ROOM_URL

@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from config import LIVE_RANK_INTERVAL, LIVE_RANK_LIST
@@ -35,7 +36,7 @@ def get_rank(room_id):
         })
     # 判断是否存在排名，不存在就是空
     GlobalVal.rank_user = ranks_three
-    logger.info(f"更新打赏排行: {ranks_three}")
+    logging.info(f"更新打赏排行: {ranks_three}")
     print(f"更新打赏排行: {ranks_three}")
 
 
@@ -44,19 +45,19 @@ def handle_rank(roo_id, delay):
         try:
             get_rank(roo_id)
         except Exception as e:
-            print(f"推送打赏排名出错:{e}")
+            logging.info(f"推送打赏排名出错:{e}")
         time.sleep(delay)
 
 
 def interval_rank(roo_id):
-    print("---------------------------------------->")
-    print("直播间ID:"+roo_id)
-    print(f"间隔{LIVE_RANK_INTERVAL}秒更新一下排行")
+    logging.info("---------------------------------------->")
+    logging.info("直播间ID:"+roo_id)
+    logging.info(f"间隔{LIVE_RANK_INTERVAL}秒更新一下排行")
     if LIVE_RANK_LIST:
         rank_t = threading.Thread(target=handle_rank, args=(roo_id, LIVE_RANK_INTERVAL))
         rank_t.start()
     else:
-        print(f"未开启直播礼物排名")
+        logging.info(f"未开启直播礼物排名")
 
 
 if __name__ == '__main__':
