@@ -6,6 +6,8 @@ from src.utils.logger import logger
 from src.utils.common import GlobalVal
 import requests
 
+# 用于控制循环请求的标志
+should_stop = False
 
 def get_rank(room_id):
     url = f"https://live.douyin.com/webcast/ranklist/audience/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&cookie_enabled=true&screen_width=2560&screen_height=1440&browser_language=zh-CN&browser_platform=Win32&browser_name=Chrome&browser_version=117.0.0.0&webcast_sdk_version=2450&room_id={room_id}&rank_type=30"
@@ -40,24 +42,37 @@ def get_rank(room_id):
     print(f"更新打赏排行: {ranks_three}")
 
 
-def handle_rank(roo_id, delay):
-    while True:
-        try:
-            get_rank(roo_id)
-        except Exception as e:
-            logging.info(f"推送打赏排名出错:{e}")
-        time.sleep(delay)
+def handle_rank(room_id, interval):
+    global should_stop
+    while not should_stop:
+        logging.info(f"处理直播礼物排名，房间ID: {room_id}")
+        # 执行处理直播礼物排名的逻辑
+        do_rank_logic(room_id)
+        time.sleep(interval)
+
+def do_rank_logic(room_id):
+    # 实际处理直播礼物排名的逻辑
+    pass
 
 
 def interval_rank(roo_id):
+    global should_stop
     logging.info("---------------------------------------->")
-    logging.info("直播间ID:"+roo_id)
-    logging.info(f"间隔{LIVE_RANK_INTERVAL}秒更新一下排行")
+    logging.info(f"直播间ID: {roo_id}")
+    logging.info(f"间隔 {LIVE_RANK_INTERVAL} 秒更新一次排行")
+
     if LIVE_RANK_LIST:
+        logging.info("开启直播礼物排名")
         rank_t = threading.Thread(target=handle_rank, args=(roo_id, LIVE_RANK_INTERVAL))
         rank_t.start()
     else:
-        logging.info(f"未开启直播礼物排名")
+        logging.info("未开启直播礼物排名")
+
+# 停止循环请求
+async def stop_interval_rank():
+    global should_stop
+    should_stop = True
+    logging.info("停止直播礼物排名循环请求")
 
 
 if __name__ == '__main__':

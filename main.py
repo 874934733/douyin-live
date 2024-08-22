@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from config import LIVE_ROOM_URL
 from src import dy_live
 from src.dy_live import parseLiveRoomInfo, stopWSServer
+from src.live_rank import stop_interval_rank
 from src.utils.common import init_global
 from src.utils.http_send import send_start
 
@@ -51,6 +52,7 @@ async def receive_code(code_request: CodeRequest):
 @app.post("/stop_wss_server")
 async def stop_wss_server():
     await stopWSServer()
+    await stop_interval_rank()
     return {"message": "直播已结束"}
 
 if __name__ == '__main__':
