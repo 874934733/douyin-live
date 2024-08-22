@@ -11,7 +11,7 @@ from src.utils.logger import logger
 
 def sender():
     total_info = f"点赞：{GlobalVal.like_num}, 评论: {GlobalVal.commit_num}, 礼物价值: {GlobalVal.gift_value}"
-    print(f"获取到的直播数据是:{total_info}")
+    logging.info(f"获取到的直播数据是:{total_info}")
     payload = json.dumps({
         "taskuuid": "updatedonation",
         "uuid": DONATION_UUID,
@@ -27,7 +27,7 @@ def sender():
     }
     # print(f"推送的直播数据是:{payload}")
     response = requests.request("POST", LIVE_WEB_SEND_URL, headers=headers, data=payload)
-    print(f"HTTP推送消息结果: {response.json()}")
+    logging.info(f"HTTP推送消息结果: {response.json()}")
 
 
 def http_send():

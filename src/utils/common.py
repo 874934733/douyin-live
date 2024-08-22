@@ -1,3 +1,5 @@
+import logging
+
 import requests
 import json
 from config import LIVE_WEB_SEND_URL, DONATION_UUID, LIVE_DATA_CODE
@@ -32,7 +34,7 @@ def init_global():
         'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
         'Content-Type': 'application/json'
     }
-    logger.info("初始化日志信息上报")
+    logging.info("初始化日志信息上报")
     try:
         response = requests.request("POST", LIVE_WEB_SEND_URL, headers=headers, data=payload)
         query_json = response.json()
@@ -45,4 +47,4 @@ def init_global():
                 GlobalVal.gift_list = [i for i in data.get("fannamereadylist").split("|") if i]
                 return
     except Exception as e:
-        logger.info(f"获取线上数据失败：如果你不用将直播数据推送到你们的服务器上，可以忽略此提示")
+        logging.info(f"获取线上数据失败：如果你不用将直播数据推送到你们的服务器上，可以忽略此提示")

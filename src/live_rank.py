@@ -2,7 +2,6 @@ import logging
 import threading
 import time
 from config import LIVE_RANK_INTERVAL, LIVE_RANK_LIST
-from src.utils.logger import logger
 from src.utils.common import GlobalVal
 import requests
 

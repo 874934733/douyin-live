@@ -33,13 +33,13 @@ executor = ThreadPoolExecutor()  # 创建线程池
 async def receive_code(code_request: CodeRequest):
     code = code_request.code
     logging.info(f"Received code: "+code)
-    # 使用线程池执行同步的 init_global 函数
-    # await asyncio.get_running_loop().run_in_executor(executor, init_global)
-    # 使用线程池执行同步的 send_start 函数
-    # await asyncio.get_running_loop().run_in_executor(executor, send_start)
-    # 在config.py配置中修改直播地址: LIVE_ROOM_URL
     config.LIVE_ROOM_URL = f"https://live.douyin.com/{code}"
     logging.info(config.LIVE_ROOM_URL)
+    # 使用线程池执行同步的 init_global 函数
+    await asyncio.get_running_loop().run_in_executor(executor, init_global)
+    # 使用线程池执行同步的 send_start 函数
+    await asyncio.get_running_loop().run_in_executor(executor, send_start)
+    # 在config.py配置中修改直播地址: LIVE_ROOM_URL
     live_status = await parseLiveRoomInfo(config.LIVE_ROOM_URL)
     logging.info(live_status)
     # if live_status.get("status") == "4":
