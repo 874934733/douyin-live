@@ -2,7 +2,6 @@ import requests
 
 from config import SEND_CODE
 
-
 # 初始化全局变量：从服务端获取
 def init_live_room_data():
     # 定义要发送的数据

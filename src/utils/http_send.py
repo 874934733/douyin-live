@@ -2,12 +2,12 @@ import json
 import logging
 import threading
 import time
+
 import requests
+
 from config import DONATION_UUID, LIVE_WEB_SEND_URL, LIVE_HTTP_SEND, LIVE_SEND_INTERVAL
-from src.dy_live import stopWSServer
 from src.utils.common import GlobalVal
 from src.utils.logger import logger
-
 
 def sender():
     total_info = f"点赞：{GlobalVal.like_num}, 评论: {GlobalVal.commit_num}, 礼物价值: {GlobalVal.gift_value}"

@@ -2,17 +2,13 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from distutils.command.config import config
-from logging import Logger
 
 from fastapi import FastAPI
 import uvicorn
-from pydantic import BaseModel
 
-from config import LIVE_ROOM_URL
-from src import dy_live
 from src.dy_live import parseLiveRoomInfo, stopWSServer
 from src.live_rank import stop_interval_rank
-from src.utils.common import init_global
+from src.utils.common import init_global, CodeRequest
 from src.utils.http_send import send_start
 
 # 创建FastAPI应用实例
@@ -21,10 +17,6 @@ app = FastAPI()
 # 日志配置
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.DEBUG)
-
-
-class CodeRequest(BaseModel):
-    code: str
 
 
 executor = ThreadPoolExecutor()  # 创建线程池

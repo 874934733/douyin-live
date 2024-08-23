@@ -1,9 +1,18 @@
 import logging
 
 import requests
-import json
+from pydantic import BaseModel
+
 from config import LIVE_WEB_SEND_URL, DONATION_UUID, LIVE_DATA_CODE
-from src.utils.logger import logger
+
+
+class CodeRequest(BaseModel):
+    code: str
+
+class LiveStatusResponse(BaseModel):
+    code: int = 0
+    message: str = ""
+    data: dict = {}
 
 
 class GlobalVal(object):

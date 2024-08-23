@@ -1,9 +1,11 @@
 import logging
 import threading
 import time
+
+import requests
+
 from config import LIVE_RANK_INTERVAL, LIVE_RANK_LIST
 from src.utils.common import GlobalVal
-import requests
 
 # 用于控制循环请求的标志
 should_stop = False

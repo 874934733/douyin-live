@@ -1,4 +1,3 @@
-import _thread
 import asyncio
 import binascii
 import gzip
