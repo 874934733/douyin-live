@@ -7,8 +7,9 @@ from pydantic import BaseModel
 from config import LIVE_WEB_SEND_URL, DONATION_UUID, LIVE_DATA_CODE
 
 
-class CodeRequest(BaseModel):
-    code: str
+class RoomIdRequest(BaseModel):
+    room_id: str
+
 
 class LiveStatusResponse(BaseModel):
     code: int = 0
@@ -35,10 +36,11 @@ class GlobalVal(object):
 
 
 # 初始化全局变量：从服务端获取
-def init_global():
+def init_global(room_id):
     payload = json.dumps({
         "taskuuid": "querydonation",
-        "gameuuid": LIVE_DATA_CODE
+        "gameuuid": LIVE_DATA_CODE,
+        "room_id": room_id
     })
     headers = {
         'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",

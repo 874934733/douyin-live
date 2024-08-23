@@ -8,11 +8,10 @@ import signal
 from threading import Thread
 
 import httpx
-from fastapi import websockets
+import websockets
 from starlette.websockets import WebSocketDisconnect
 
 from config import LIVE_GIFT_LIST
-from src.utils.logger import logger
 import re
 import time
 import requests
@@ -119,7 +118,7 @@ def onMessage(ws: websocket.WebSocketApp, message: bytes):
         # WebcastRoomStatsMessage
         if msg.method == 'WebcastRoomStatsMessage':
             print("WebcastRoomStatsMessage")
-        logger.info('[onMessage] [待解析方法' + msg.method + '等待解析～] [房间Id：' + liveRoomId + ']')
+        logging.info('[onMessage] [待解析方法' + msg.method + '等待解析～] [房间Id：' + liveRoomId + ']')
 
 
 def unPackWebcastCommonTextMessage(data):
@@ -127,7 +126,7 @@ def unPackWebcastCommonTextMessage(data):
     commonTextMessage.ParseFromString(data)
     data = json_format.MessageToDict(commonTextMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info('[unPackWebcastCommonTextMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info('[unPackWebcastCommonTextMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -136,7 +135,7 @@ def WebcastProductChangeMessage(data):
     commonTextMessage.ParseFromString(data)
     data = json_format.MessageToDict(commonTextMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info('[WebcastProductChangeMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info('[WebcastProductChangeMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
 
 
 def unPackWebcastUpdateFanTicketMessage(data):
@@ -144,7 +143,7 @@ def unPackWebcastUpdateFanTicketMessage(data):
     updateFanTicketMessage.ParseFromString(data)
     data = json_format.MessageToDict(updateFanTicketMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info('[unPackWebcastUpdateFanTicketMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info('[unPackWebcastUpdateFanTicketMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -153,7 +152,7 @@ def unPackWebcastRoomUserSeqMessage(data):
     roomUserSeqMessage.ParseFromString(data)
     data = json_format.MessageToDict(roomUserSeqMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info('[unPackWebcastRoomUserSeqMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info('[unPackWebcastRoomUserSeqMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -162,7 +161,7 @@ def unPackWebcastSocialMessage(data):
     socialMessage.ParseFromString(data)
     data = json_format.MessageToDict(socialMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info('[unPackWebcastSocialMessage] [➕直播间关注消息] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info('[unPackWebcastSocialMessage] [➕直播间关注消息] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -173,7 +172,7 @@ def unPackWebcastChatMessage(data):
     chatMessage.ParseFromString(data)
     data = json_format.MessageToDict(chatMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info(
+    logging.info(
         f'[unPackWebcastChatMessage] [直播间弹幕消息{GlobalVal.commit_num}] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
@@ -190,7 +189,7 @@ def unPackWebcastGiftMessage(data):
         gift_traceId = data.get("traceId")
         # 对特殊礼物单独统计
         if gift_name in LIVE_GIFT_LIST and gift_traceId not in GlobalVal.gift_id_list:
-            logger.info(f"抓到特殊礼物了: {gift_name}，用户名：{nick_name}")
+            logging.info(f"抓到特殊礼物了: {gift_name}，用户名：{nick_name}")
             GlobalVal.gift_list.append(f"{nick_name}")
             GlobalVal.gift_id_list.append(gift_traceId)
         # 特殊礼物价值依然统计
@@ -199,9 +198,9 @@ def unPackWebcastGiftMessage(data):
         # 将消息发送到我们自己的服务器:websocket链接
         ws_sender(f"收到礼物: {gift_name}，礼物数量:{GlobalVal.gift_num}，礼物价值: {GlobalVal.gift_value}")
     except Exception as e:
-        logger.error(f"解析礼物数据出错: {e}")
+        logging.error(f"解析礼物数据出错: {e}")
     log = json.dumps(data, ensure_ascii=False)
-    logger.info(
+    logging.info(
         f'[unPackWebcastGiftMessage] [直播间礼物消息{GlobalVal.gift_num}:{GlobalVal.gift_value}] [房间Id：' + liveRoomId + '] ' + log)
     return data
 
@@ -215,7 +214,7 @@ def unPackWebcastMemberMessage(data):
     # 直播间人数统计
     member_num = int(data.get("memberCount", 0))
     log = json.dumps(data, ensure_ascii=False)
-    logger.info(f'[unPackWebcastMemberMessage] [直播间成员加入: {member_num}] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info(f'[unPackWebcastMemberMessage] [直播间成员加入: {member_num}] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -227,7 +226,7 @@ def unPackWebcastLikeMessage(data):
     # like_num = int(data["total"])
     GlobalVal.like_num = int(data.get("total", 0))
     log = json.dumps(data, ensure_ascii=False)
-    logger.info(f'[unPackWebcastLikeMessage] [直播间点赞统计{data["total"]}] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info(f'[unPackWebcastLikeMessage] [直播间点赞统计{data["total"]}] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -237,7 +236,7 @@ def unPackMatchAgainstScoreMessage(data):
     matchAgainstScoreMessage.ParseFromString(data)
     data = json_format.MessageToDict(matchAgainstScoreMessage, preserving_proto_field_name=True)
     log = json.dumps(data, ensure_ascii=False)
-    logger.info('[unPackMatchAgainstScoreMessage] [不知道是啥的消息] [房间Id：' + liveRoomId + '] | ' + log)
+    logging.info('[unPackMatchAgainstScoreMessage] [不知道是啥的消息] [房间Id：' + liveRoomId + '] | ' + log)
     return data
 
 
@@ -249,11 +248,11 @@ def sendAck(ws, logId, internalExt):
     obj.payloadType = internalExt
     data = obj.SerializeToString()
     ws.send(data, websocket.ABNF.OPCODE_BINARY)
-    logger.info('[sendAck] [🌟发送Ack] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
+    logging.info('[sendAck] [🌟发送Ack] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
 
 
 def onError(ws, error):
-    logger.error('[onError] [webSocket Error事件] [房间Id：' + liveRoomId + ']')
+    logging.error('[onError] [webSocket Error事件] [房间Id：' + liveRoomId + ']')
 
 
 def onClose(ws, a, b):
@@ -261,10 +260,10 @@ def onClose(ws, a, b):
     end_time = time.time()
     total_time = end_time - start_time
     total_info = f"直播抓取时长：{total_time}，点赞数量总计：{GlobalVal.like_num}, 评论数量总计: {GlobalVal.commit_num}, 礼物数量总计：{GlobalVal.gift_num}, 礼物价值总计: {GlobalVal.gift_value}"
-    logger.info(total_info)
+    logging.info(total_info)
     # 将消息发送到我们自己的服务器
     # ws_sender(total_info)
-    logger.info('[onClose] [webSocket Close事件] [房间Id：' + liveRoomId + ']')
+    logging.info('[onClose] [webSocket Close事件] [房间Id：' + liveRoomId + ']')
     # 直播结束退出程序
     pid = os.getpid()  # 获取当前进程的PID
     os.kill(pid, signal.SIGTERM)
@@ -353,11 +352,11 @@ navigator = {{
         # print("signature: ", signature)
         return signature
     except:
-        logger.exception("get_signature error")
+        logging.exception("get_signature error")
     return "00000000"
 
 
-async def parseLiveRoomInfo(url):
+async def parseLiveRoomInfo(url, my_room_id):
     async with httpx.AsyncClient() as client:
         headers = {
             'authority': 'live.douyin.com',
@@ -389,7 +388,7 @@ async def parseLiveRoomInfo(url):
         live_room_search = re.search(r'owner\\":(.*?),\\"room_auth', res)
         live_room_res = live_room_search.group(1).replace('\\"', '"')
         live_room_info = json.loads(live_room_res)
-        logger.info(f"主播账号信息: {live_room_info}")
+        logging.info(f"主播账号信息: {live_room_info}")
         print(f"主播账号信息: {live_room_info}")
         # 直播间id
         liveRoomId = res_room.group(1)
@@ -400,17 +399,17 @@ async def parseLiveRoomInfo(url):
         res_m3u8_hd1 = res_stream_m3u8s.get("FULL_HD1", "").replace("http", "https")
         if not res_m3u8_hd1:
             res_m3u8_hd1 = res_m3u8_hd1.get("HD1", "").replace("http", "https")
-        logger.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
+        logging.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
         print(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
         # 找到flv直播流地址:区分标清|高清|蓝光
         res_flv_search = re.search(r'flv\\":\\"(.*?)\\"', res)
         res_stream_flv = res_flv_search.group(1).replace('\\"', '"').replace("\\\\u0026", "&")
         if "https" not in res_stream_flv:
             res_stream_flv = res_stream_flv.replace("http", "https")
-        logger.info(f"直播流FLV地址是: {res_stream_flv}")
+        logging.info(f"直播流FLV地址是: {res_stream_flv}")
         print(f"直播流FLV地址是: {res_stream_flv}")
         # 开始获取直播间排行
-        live_rank.interval_rank(liveRoomId)
+        live_rank.interval_rank(my_room_id)
 
         USER_UNIQUE_ID = get_user_unique_id()
         VERSION_CODE = 180800
@@ -446,7 +445,7 @@ async def parseLiveRoomInfo(url):
         wss_url = build_request_url(wss_url)
         logging.info('====================开启长链接=============================>')
         # 创建一个任务来处理 WebSocket 连接
-        asyncio.create_task(connect_to_websocket(wss_url, ttwid, USER_AGENT))
+        await asyncio.create_task(connect_to_websocket(wss_url, ttwid, USER_AGENT))
         return {"code": room_status, "message": "获取直播间信息成功"}
 
 
@@ -468,7 +467,7 @@ async def wssServerStart(wsurl):
         'cookie': 'ttwid=' + ttwid,
         'user-agent': USER_AGENT,
     }
-    logger.info(f'弹幕监听地址wsurl:{wsurl}')
+    logging.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
     ws_instance = websocket.WebSocketApp(
         wsurl, on_message=onMessage, on_error=onError, on_close=onClose,
@@ -484,8 +483,8 @@ def parseLiveRoomUrl(url):
     :param url:直播地址
     :return:
     """
-    logger.info("----------------------------------->")
-    logger.info(url)
+    logging.info("----------------------------------->")
+    logging.info(url)
     headers = {
         'authority': 'live.douyin.com',
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -506,7 +505,7 @@ def parseLiveRoomUrl(url):
         room_status = res_room_info.group(2)
         room_title = res_room_info.group(3)
         liveRoomTitle = room_title
-        logger.info(f"房间标题: {liveRoomTitle}")
+        logging.info(f"房间标题: {liveRoomTitle}")
         if room_status == '4':
             raise ConnectionError("直播已结束")
     res_room = re.search(r'roomId\\":\\"(\d+)\\"', res)
@@ -514,7 +513,7 @@ def parseLiveRoomUrl(url):
     live_room_search = re.search(r'owner\\":(.*?),\\"room_auth', res)
     live_room_res = live_room_search.group(1).replace('\\"', '"')
     live_room_info = json.loads(live_room_res)
-    logger.info(f"主播账号信息: {live_room_info}")
+    logging.info(f"主播账号信息: {live_room_info}")
     print(f"主播账号信息: {live_room_info}")
     # 直播间id
     liveRoomId = res_room.group(1)
@@ -525,14 +524,14 @@ def parseLiveRoomUrl(url):
     res_m3u8_hd1 = res_stream_m3u8s.get("FULL_HD1", "").replace("http", "https")
     if not res_m3u8_hd1:
         res_m3u8_hd1 = res_m3u8_hd1.get("HD1", "").replace("http", "https")
-    logger.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
+    logging.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
     print(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
     # 找到flv直播流地址:区分标清|高清|蓝光
     res_flv_search = re.search(r'flv\\":\\"(.*?)\\"', res)
     res_stream_flv = res_flv_search.group(1).replace('\\"', '"').replace("\\\\u0026", "&")
     if "https" not in res_stream_flv:
         res_stream_flv = res_stream_flv.replace("http", "https")
-    logger.info(f"直播流FLV地址是: {res_stream_flv}")
+    logging.info(f"直播流FLV地址是: {res_stream_flv}")
     print(f"直播流FLV地址是: {res_stream_flv}")
     # 开始获取直播间排行
     live_rank.interval_rank(liveRoomId)

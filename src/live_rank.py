@@ -40,7 +40,6 @@ def get_rank(room_id):
     # 判断是否存在排名，不存在就是空
     GlobalVal.rank_user = ranks_three
     logging.info(f"更新打赏排行: {ranks_three}")
-    print(f"更新打赏排行: {ranks_three}")
 
 
 def handle_rank(room_id, interval):
@@ -48,12 +47,8 @@ def handle_rank(room_id, interval):
     while not should_stop:
         logging.info(f"处理直播礼物排名，房间ID: {room_id}")
         # 执行处理直播礼物排名的逻辑
-        do_rank_logic(room_id)
+        get_rank(room_id)
         time.sleep(interval)
-
-def do_rank_logic(room_id):
-    # 实际处理直播礼物排名的逻辑
-    pass
 
 
 def interval_rank(roo_id):

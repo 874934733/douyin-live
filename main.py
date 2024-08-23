@@ -8,7 +8,7 @@ import uvicorn
 
 from src.dy_live import parseLiveRoomInfo, stopWSServer
 from src.live_rank import stop_interval_rank
-from src.utils.common import init_global, CodeRequest
+from src.utils.common import init_global, RoomIdRequest
 from src.utils.http_send import send_start
 
 # 创建FastAPI应用实例
@@ -18,25 +18,25 @@ app = FastAPI()
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.DEBUG)
 
-
 executor = ThreadPoolExecutor()  # 创建线程池
 
+
 @app.post("/receive_code")
-async def receive_code(code_request: CodeRequest):
-    code = code_request.code
-    logging.info(f"Received code: "+code)
-    config.LIVE_ROOM_URL = f"https://live.douyin.com/{code}"
+async def receive_code(room_request: RoomIdRequest):
+    room_id = room_request.room_id
+    logging.info(f"Received code: " + room_id)
+    config.LIVE_ROOM_URL = f"https://live.douyin.com/{room_id}"
     logging.info(config.LIVE_ROOM_URL)
     # 使用线程池执行同步的 init_global 函数
-    await asyncio.get_running_loop().run_in_executor(executor, init_global)
+    await asyncio.get_running_loop().run_in_executor(executor, init_global(room_id))
     # 使用线程池执行同步的 send_start 函数
-    await asyncio.get_running_loop().run_in_executor(executor, send_start)
+    await asyncio.get_running_loop().run_in_executor(executor, send_start(room_id))
     # 在config.py配置中修改直播地址: LIVE_ROOM_URL
-    live_status = await parseLiveRoomInfo(config.LIVE_ROOM_URL)
+    live_status = await parseLiveRoomInfo(config.LIVE_ROOM_URL, room_id)
     logging.info(live_status)
     # if live_status.get("status") == "4":
-        # 如果直播已结束，返回特定的消息
-        # return {"message": "直播已结束"}
+    # 如果直播已结束，返回特定的消息
+    # return {"message": "直播已结束"}
 
     return live_status
 
@@ -46,6 +46,7 @@ async def stop_wss_server():
     await stopWSServer()
     await stop_interval_rank()
     return {"message": "直播已结束"}
+
 
 if __name__ == '__main__':
     # 在config.py配置中修改直播地址: LIVE_ROOM_URL
