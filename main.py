@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.DEBUG)
 executor = ThreadPoolExecutor()  # 创建线程池
 
 
-@app.post("/receive_code")
+@app.post("/start_wss_server")
 async def receive_code(room_request: RoomIdRequest):
     room_id = room_request.room_id
     logging.info(f"Received code: " + room_id)
