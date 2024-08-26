@@ -1,26 +1,18 @@
-import asyncio
+import _thread
 import binascii
 import gzip
 import json
 import logging
 import os
 import signal
-from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
-
-import httpx
-import websockets
-from starlette.websockets import WebSocketDisconnect
-
 from config import LIVE_GIFT_LIST
+from src.utils.logger import logger
 import re
 import time
 import requests
 import websocket
 import random, hashlib, jsengine
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-
-from src.utils.http_send import send_start
 from src.utils.ws_send import ws_sender
 from src import live_rank
 from src.utils.common import GlobalVal, LiveStatusResponse
@@ -49,9 +41,6 @@ live_stream_url = ""
 start_time = time.time()
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0'
-
-ws_instance = None
-ping_thread = None  # 用于存储心跳线程的引用
 
 
 def onMessage(ws: websocket.WebSocketApp, message: bytes):
@@ -273,10 +262,8 @@ def onClose(ws, a, b):
 
 
 def onOpen(ws):
-    global ping_thread
-    ping_thread = Thread(target=ping, args=(ws,))
-    ping_thread.start()
-    logging.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + ']')
+    _thread.start_new_thread(ping, (ws,))
+    logger.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + ']')
 
 
 # 发送ping心跳包
@@ -296,32 +283,14 @@ def wssServerStart(wsurl):
         'cookie': 'ttwid=' + ttwid,
         'user-agent': USER_AGENT,
     }
-    logging.info(f'弹幕监听地址wsurl:{wsurl}')
+    logger.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
-    ws_instance = websocket.WebSocketApp(
+    ws = websocket.WebSocketApp(
         wsurl, on_message=onMessage, on_error=onError, on_close=onClose,
         on_open=onOpen,
         header=h
     )
-    ws_instance.run_forever()
-
-
-executor = ThreadPoolExecutor()  # 创建线程池
-
-
-# 停止 WebSocket 服务器
-async def stopWSServer():
-    global ws_instance, ping_thread
-    if ws_instance is not None:
-        ws_instance.close()
-        logging.info("WebSocket server stopped.")
-        ws_instance = None
-        logging.info("WebSocket service stopped.")
-
-        # 等待心跳线程结束
-        if ping_thread is not None and ping_thread.is_alive():
-            ping_thread.join()
-            logging.info("Heartbeat thread stopped.")
+    ws.run_forever()
 
 
 def get_user_unique_id():
@@ -363,124 +332,6 @@ navigator = {{
     return "00000000"
 
 
-async def parseLiveRoomInfo(url, my_room_id):
-    async with httpx.AsyncClient() as client:
-        headers = {
-            'authority': 'live.douyin.com',
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
-            'cache-control': 'max-age=0',
-            'cookie': 'xgplayer_user_id=251959789708; passport_assist_user=Cj1YUtyK7x-Br11SPK-ckKl61u5KX_SherEuuGPYIkLjtmV3X8m3EU1BAGVoO541Sp_jwUa8lBlNmbaOQqheGkoKPOVVH42rXu6KEb9WR85pUw4_qNHfbcotEO-cml5itrJowMBlYXDaB-GDqJwNMxMElMoZUycGhzdNVAT4XxCJ_74NGImv1lQgASIBA3Iymus%3D; n_mh=nNwOatDm453msvu0tqEj4bZm3NsIprwo6zSkIjLfICk; LOGIN_STATUS=1; store-region=cn-sh; store-region-src=uid; sid_guard=b177a545374483168432b16b963f04d5%7C1697713285%7C5183999%7CMon%2C+18-Dec-2023+11%3A01%3A24+GMT; ttwid=1%7C9SEGPfK9oK2Ku60vf6jyt7h6JWbBu4N_-kwQdU-SPd8%7C1697721607%7Cc406088cffa073546db29932058720720521571b92ba67ba902a70e5aaffd5d6; odin_tt=1f738575cbcd5084c21c7172736e90f845037328a006beefec4260bf8257290e2d31b437856575c6caeccf88af429213; __live_version__=%221.1.1.6725%22; device_web_cpu_core=16; device_web_memory_size=8; live_use_vvc=%22false%22; csrf_session_id=38b68b1e672a92baa9dcb4d6fd1c5325; FORCE_LOGIN=%7B%22videoConsumedRemainSeconds%22%3A180%7D; __ac_nonce=0658d6780004b23f5d0a8; __ac_signature=_02B4Z6wo00f01Klw1CQAAIDAXxndAbr7OHypUNCAAE.WSwYKFjGSE9AfNTumbVmy1cCS8zqYTadqTl8vHoAv7RMb8THl082YemGIElJtZYhmiH-NnOx53mVMRC7MM8xuavIXc-9rE7ZEgXaA13; webcast_leading_last_show_time=1703765888956; webcast_leading_total_show_times=1; webcast_local_quality=sd; xg_device_score=7.90435294117647; live_can_add_dy_2_desktop=%221%22; msToken=sTwrsWOpxsxXsirEl0V0d0hkbGLze4faRtqNZrIZIuY8GYgo2J9a0RcrN7r_l179C9AQHmmloI94oDvV8_owiAg6zHueq7lX6TgbKBN6OZnyfvZ6OJyo2SQYawIB_g==; tt_scid=NyxJTt.vWxv79efmWAzT2ZAiLSuybiEOWF0wiVYs5KngMuBf8oz5sqzpg5XoSPmie930; pwa2=%220%7C0%7C1%7C0%22; download_guide=%223%2F20231228%2F0%22; msToken=of81bsT85wrbQ9nVOK3WZqQwwku95KW-wLfjFZOef2Orr8PRQVte27t6Mkc_9c_ROePolK97lKVG3IL5xrW6GY6mdUDB0EcBPfnm8-OAShXzlELOxBBCdiQYIjCGpQ==; IsDouyinActive=false; odin_tt=7409a7607c84ba28f27c62495a206c66926666f2bbf038c847b27817acbdbff28c3cf5930de4681d3cfd4c1139dd557e; ttwid=1%7C9SEGPfK9oK2Ku60vf6jyt7h6JWbBu4N_-kwQdU-SPd8%7C1697721607%7Cc406088cffa073546db29932058720720521571b92ba67ba902a70e5aaffd5d6',
-            'referer': 'https://live.douyin.com/721566130345?cover_type=&enter_from_merge=web_live&enter_method=web_card&game_name=&is_recommend=&live_type=game&more_detail=&room_id=7317569386624125734&stream_type=vertical&title_type=&web_live_tab=all',
-            'upgrade-insecure-requests': '1',
-            'user-agent': USER_AGENT
-        }
-        res = await client.get(url, headers=headers)
-        text = res.text
-        cookies_dict = dict(res.cookies)
-        ttwid = cookies_dict.get('ttwid')
-        res = res.text
-        res_room_info = re.search(r'room\\":{.*\\"id_str\\":\\"(\d+)\\".*,\\"status\\":(\d+).*"title\\":\\"([^"]*)\\"',
-                                  res)
-        if res_room_info:
-            room_status = res_room_info.group(2)
-            room_title = res_room_info.group(3)
-            liveRoomTitle = room_title
-            logging.info(f"房间标题: {liveRoomTitle}")
-            if room_status == '4':
-                return LiveStatusResponse(
-                    code=500,
-                    message="直播已结束",
-                    data={}
-                )
-            else:
-                res_room = re.search(r'roomId\\":\\"(\d+)\\"', res)
-                # 获取直播主播的uid和昵称等信息
-                live_room_search = re.search(r'owner\\":(.*?),\\"room_auth', res)
-                live_room_res = live_room_search.group(1).replace('\\"', '"')
-                live_room_info = json.loads(live_room_res)
-                logging.info(f"主播账号信息: {live_room_info}")
-                print(f"主播账号信息: {live_room_info}")
-                # 直播间id
-                liveRoomId = res_room.group(1)
-                # 获取m3u8直播流地址：m3u8直播比flv延迟2秒左右
-                res_stream = re.search(r'hls_pull_url_map\\":(\{.*?})', res)
-                res_stream_m3u8s = json.loads(res_stream.group(1).replace('\\"', '"'))
-                # HD1和FULL_HD1随机获取，优先获取FULL_HD1
-                res_m3u8_hd1 = res_stream_m3u8s.get("FULL_HD1", "").replace("http", "https")
-                if not res_m3u8_hd1:
-                    res_m3u8_hd1 = res_m3u8_hd1.get("HD1", "").replace("http", "https")
-                logging.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
-                print(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
-                # 找到flv直播流地址:区分标清|高清|蓝光
-                res_flv_search = re.search(r'flv\\":\\"(.*?)\\"', res)
-                res_stream_flv = res_flv_search.group(1).replace('\\"', '"').replace("\\\\u0026", "&")
-                if "https" not in res_stream_flv:
-                    res_stream_flv = res_stream_flv.replace("http", "https")
-                logging.info(f"直播流FLV地址是: {res_stream_flv}")
-                print(f"直播流FLV地址是: {res_stream_flv}")
-                # 开始获取直播间排行
-                live_rank.interval_rank(my_room_id)
-
-                await asyncio.get_running_loop().run_in_executor(executor, send_start(my_room_id))
-
-                USER_UNIQUE_ID = get_user_unique_id()
-                VERSION_CODE = 180800
-                WEBCAST_SDK_VERSION = "1.0.14-beta.0"
-                sig_params = {
-                    "live_id": "1",
-                    "aid": "6383",
-                    "version_code": VERSION_CODE,
-                    "webcast_sdk_version": WEBCAST_SDK_VERSION,
-                    "room_id": liveRoomId,
-                    "sub_room_id": "",
-                    "sub_channel_id": "",
-                    "did_rule": "3",
-                    "user_unique_id": USER_UNIQUE_ID,
-                    "device_platform": "web",
-                    "device_type": "",
-                    "ac": "",
-                    "identity": "audience"
-                }
-                signature = get_signature(get_x_ms_stub(sig_params))
-                webcast5_params = {
-                    "room_id": liveRoomId,
-                    "compress": 'gzip',
-                    "version_code": VERSION_CODE,
-                    "webcast_sdk_version": WEBCAST_SDK_VERSION,
-                    "live_id": "1",
-                    "did_rule": "3",
-                    "user_unique_id": USER_UNIQUE_ID,
-                    "identity": "audience",
-                    "signature": signature,
-                }
-                wss_url = f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?{'&'.join([f'{k}={v}' for k, v in webcast5_params.items()])}"
-                wss_url = build_request_url(wss_url)
-                logging.info('====================开启长链接=============================>')
-                # 创建一个任务来处理 WebSocket 连接
-                await asyncio.create_task(connect_to_websocket(wss_url, ttwid, USER_AGENT))
-                return LiveStatusResponse(
-                    code=200,
-                    message="获取直播间信息成功",
-                    data={
-                        "wss_url": wss_url,
-                        "ttwid": ttwid,
-                        "user_agent": USER_AGENT
-                    })
-
-
-async def connect_to_websocket(wss_url, ttwid, user_agent):
-    try:
-        headers = {
-            'cookie': f'ttwid={ttwid}',
-            'user-agent': user_agent,
-        }
-        async with websockets.connect(wss_url, extra_headers=headers) as websocket:
-            await wssServerStart(websocket, wss_url)
-    except WebSocketDisconnect:
-        logging.error("WebSocket 连接意外关闭。")
-
-
 async def wssServerStart(wsurl):
     global ws_instance
     h = {
@@ -497,14 +348,12 @@ async def wssServerStart(wsurl):
     ws_instance.run_forever()
 
 
-def parseLiveRoomUrl(url):
+async def parseLiveRoomUrl(url, my_room_id):
     """
     解析直播的弹幕websocket地址
     :param url:直播地址
     :return:
     """
-    logging.info("----------------------------------->")
-    logging.info(url)
     headers = {
         'authority': 'live.douyin.com',
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -527,68 +376,81 @@ def parseLiveRoomUrl(url):
         liveRoomTitle = room_title
         logging.info(f"房间标题: {liveRoomTitle}")
         if room_status == '4':
-            raise ConnectionError("直播已结束")
-    res_room = re.search(r'roomId\\":\\"(\d+)\\"', res)
-    # 获取直播主播的uid和昵称等信息
-    live_room_search = re.search(r'owner\\":(.*?),\\"room_auth', res)
-    live_room_res = live_room_search.group(1).replace('\\"', '"')
-    live_room_info = json.loads(live_room_res)
-    logging.info(f"主播账号信息: {live_room_info}")
-    print(f"主播账号信息: {live_room_info}")
-    # 直播间id
-    liveRoomId = res_room.group(1)
-    # 获取m3u8直播流地址：m3u8直播比flv延迟2秒左右
-    res_stream = re.search(r'hls_pull_url_map\\":(\{.*?})', res)
-    res_stream_m3u8s = json.loads(res_stream.group(1).replace('\\"', '"'))
-    # HD1和FULL_HD1随机获取，优先获取FULL_HD1
-    res_m3u8_hd1 = res_stream_m3u8s.get("FULL_HD1", "").replace("http", "https")
-    if not res_m3u8_hd1:
-        res_m3u8_hd1 = res_m3u8_hd1.get("HD1", "").replace("http", "https")
-    logging.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
-    print(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
-    # 找到flv直播流地址:区分标清|高清|蓝光
-    res_flv_search = re.search(r'flv\\":\\"(.*?)\\"', res)
-    res_stream_flv = res_flv_search.group(1).replace('\\"', '"').replace("\\\\u0026", "&")
-    if "https" not in res_stream_flv:
-        res_stream_flv = res_stream_flv.replace("http", "https")
-    logging.info(f"直播流FLV地址是: {res_stream_flv}")
-    print(f"直播流FLV地址是: {res_stream_flv}")
-    # 开始获取直播间排行
-    live_rank.interval_rank(liveRoomId)
+            return LiveStatusResponse(
+                code=500,
+                message="直播已结束",
+                data={}
+            )
+        else:
+            res_room = re.search(r'roomId\\":\\"(\d+)\\"', res)
+            # 获取直播主播的uid和昵称等信息
+            live_room_search = re.search(r'owner\\":(.*?),\\"room_auth', res)
+            live_room_res = live_room_search.group(1).replace('\\"', '"')
+            live_room_info = json.loads(live_room_res)
+            logging.info(f"主播账号信息: {live_room_info}")
+            print(f"主播账号信息: {live_room_info}")
+            # 直播间id
+            liveRoomId = res_room.group(1)
+            # 获取m3u8直播流地址：m3u8直播比flv延迟2秒左右
+            res_stream = re.search(r'hls_pull_url_map\\":(\{.*?})', res)
+            res_stream_m3u8s = json.loads(res_stream.group(1).replace('\\"', '"'))
+            # HD1和FULL_HD1随机获取，优先获取FULL_HD1
+            res_m3u8_hd1 = res_stream_m3u8s.get("FULL_HD1", "").replace("http", "https")
+            if not res_m3u8_hd1:
+                res_m3u8_hd1 = res_m3u8_hd1.get("HD1", "").replace("http", "https")
+            logging.info(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
+            print(f"直播流m3u8链接地址是: {res_m3u8_hd1}")
+            # 找到flv直播流地址:区分标清|高清|蓝光
+            res_flv_search = re.search(r'flv\\":\\"(.*?)\\"', res)
+            res_stream_flv = res_flv_search.group(1).replace('\\"', '"').replace("\\\\u0026", "&")
+            if "https" not in res_stream_flv:
+                res_stream_flv = res_stream_flv.replace("http", "https")
+            logging.info(f"直播流FLV地址是: {res_stream_flv}")
+            print(f"直播流FLV地址是: {res_stream_flv}")
+            # 开始获取直播间排行
+            # live_rank.interval_rank(liveRoomId)
 
-    USER_UNIQUE_ID = get_user_unique_id()
-    VERSION_CODE = 180800
-    WEBCAST_SDK_VERSION = "1.0.14-beta.0"
-    sig_params = {
-        "live_id": "1",
-        "aid": "6383",
-        "version_code": VERSION_CODE,
-        "webcast_sdk_version": WEBCAST_SDK_VERSION,
-        "room_id": liveRoomId,
-        "sub_room_id": "",
-        "sub_channel_id": "",
-        "did_rule": "3",
-        "user_unique_id": USER_UNIQUE_ID,
-        "device_platform": "web",
-        "device_type": "",
-        "ac": "",
-        "identity": "audience"
-    }
-    signature = get_signature(get_x_ms_stub(sig_params))
-    webcast5_params = {
-        "room_id": liveRoomId,
-        "compress": 'gzip',
-        "version_code": VERSION_CODE,
-        "webcast_sdk_version": WEBCAST_SDK_VERSION,
-        "live_id": "1",
-        "did_rule": "3",
-        "user_unique_id": USER_UNIQUE_ID,
-        "identity": "audience",
-        "signature": signature,
-    }
-    wss_url = f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?{'&'.join([f'{k}={v}' for k, v in webcast5_params.items()])}"
-    wss_url = build_request_url(wss_url)
-    wssServerStart(wss_url)
+            USER_UNIQUE_ID = get_user_unique_id()
+            VERSION_CODE = 180800
+            WEBCAST_SDK_VERSION = "1.0.14-beta.0"
+            sig_params = {
+                "live_id": "1",
+                "aid": "6383",
+                "version_code": VERSION_CODE,
+                "webcast_sdk_version": WEBCAST_SDK_VERSION,
+                "room_id": liveRoomId,
+                "sub_room_id": "",
+                "sub_channel_id": "",
+                "did_rule": "3",
+                "user_unique_id": USER_UNIQUE_ID,
+                "device_platform": "web",
+                "device_type": "",
+                "ac": "",
+                "identity": "audience"
+            }
+            signature = get_signature(get_x_ms_stub(sig_params))
+            webcast5_params = {
+                "room_id": liveRoomId,
+                "compress": 'gzip',
+                "version_code": VERSION_CODE,
+                "webcast_sdk_version": WEBCAST_SDK_VERSION,
+                "live_id": "1",
+                "did_rule": "3",
+                "user_unique_id": USER_UNIQUE_ID,
+                "identity": "audience",
+                "signature": signature,
+            }
+            wss_url = f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?{'&'.join([f'{k}={v}' for k, v in webcast5_params.items()])}"
+            wss_url = build_request_url(wss_url)
+            await wssServerStart(wss_url)
+            return LiveStatusResponse(
+                code=200,
+                message="获取直播间信息成功",
+                data={
+                    "wss_url": wss_url,
+                    "ttwid": ttwid,
+                    "user_agent": USER_AGENT
+                })
 
 
 def build_request_url(url):

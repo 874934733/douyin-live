@@ -6,7 +6,7 @@ from distutils.command.config import config
 from fastapi import FastAPI
 import uvicorn
 
-from src.dy_live import parseLiveRoomInfo, stopWSServer
+from src.dy_live import parseLiveRoomUrl
 from src.live_rank import stop_interval_rank
 from src.utils.common import RoomIdRequest
 from src.utils.http_send import send_start
@@ -30,16 +30,18 @@ async def receive_code(room_request: RoomIdRequest):
     # 使用线程池执行同步的 init_global 函数
     # await asyncio.get_running_loop().run_in_executor(executor, init_global(room_id))
     # 使用线程池执行同步的 send_start 函数
-    await asyncio.get_running_loop().run_in_executor(executor, send_start(room_id))
+    # await asyncio.get_running_loop().run_in_executor(executor, send_start(room_id))
     # 在config.py配置中修改直播地址: LIVE_ROOM_URL
-    live_status = await parseLiveRoomInfo(config.LIVE_ROOM_URL, room_id)
-    logging.info(live_status)
-    return live_status.dict()
+    live_status = await parseLiveRoomUrl(config.LIVE_ROOM_URL, room_id)
+    if live_status is not None:
+        return live_status.dict()
+    else:
+        return None
 
 
 @app.post("/stop_wss_server")
 async def stop_wss_server():
-    await stopWSServer()
+    # await stopWSServer()
     await stop_interval_rank()
     return {"message": "直播已结束"}
 

@@ -43,7 +43,7 @@ def http_send(room_id):
             logging.info(f"推送直播数据出错：如果你不用将直播数据推送到你们的服务器上，可以忽略此提示")
 
 
-async def send_start(room_id):
+def send_start(room_id):
     if LIVE_HTTP_SEND:
         # 启动WebSocket客户端
         logger.info(f"开启线程持续发送数据")

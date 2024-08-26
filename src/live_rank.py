@@ -10,6 +10,7 @@ from src.utils.common import GlobalVal
 # 用于控制循环请求的标志
 should_stop = False
 
+
 def get_rank(room_id):
     url = f"https://live.douyin.com/webcast/ranklist/audience/?aid=6383&app_name=douyin_web&live_id=1&device_platform=web&language=zh-CN&cookie_enabled=true&screen_width=2560&screen_height=1440&browser_language=zh-CN&browser_platform=Win32&browser_name=Chrome&browser_version=117.0.0.0&webcast_sdk_version=2450&room_id={room_id}&rank_type=30"
     payload = {}
@@ -30,13 +31,20 @@ def get_rank(room_id):
     rank_list = response.json()
     # logger.info(f"[liveRankList] 直播间在线观众排名: {rank_list}")
     # 获取前三名然后只要昵称数据和排名
-    ranks_list = rank_list.get("data").get("ranks")[:4]
+    # ranks_list = rank_list.get("data").get("ranks")[:4]
+    data = rank_list.get("data")
     ranks_three = []
-    for rank in ranks_list:
-        ranks_three.append({
-            "nickname": rank.get("user").get("nickname"),
-            "rank": rank.get("rank")
-        })
+    if data is not None:
+        ranks = data.get("ranks")
+        if ranks is not None:
+            ranks_list = ranks[:4]  # 获取前四个排名
+            for rank in ranks_list:
+                ranks_three.append({
+                    "nickname": rank.get("user").get("nickname"),
+                    "rank": rank.get("rank")
+                })
+        else:
+            print("没有找到排名列表")
     # 判断是否存在排名，不存在就是空
     GlobalVal.rank_user = ranks_three
     logging.info(f"更新打赏排行: {ranks_three}")
@@ -63,6 +71,7 @@ def interval_rank(roo_id):
         rank_t.start()
     else:
         logging.info("未开启直播礼物排名")
+
 
 # 停止循环请求
 async def stop_interval_rank():
