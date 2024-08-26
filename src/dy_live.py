@@ -33,8 +33,6 @@ from proto.dy_pb2 import CommonTextMessage
 from proto.dy_pb2 import ProductChangeMessage
 
 # 直播信息全局变量
-ttwid = ""
-roomStore = ""
 liveRoomTitle = ''
 live_stream_url = ""
 # 记录抓取直播时间
@@ -55,56 +53,56 @@ def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId):
     payloadPackage.ParseFromString(decompressed)
     # 发送ack包
     if payloadPackage.needAck:
-        sendAck(ws, logId, payloadPackage.internalExt)
+        sendAck(ws, logId, payloadPackage.internalExt, liveRoomId)
     for msg in payloadPackage.messagesList:
         # 反对分数消息
         if msg.method == 'WebcastMatchAgainstScoreMessage':
-            unPackMatchAgainstScoreMessage(msg.payload)
+            unPackMatchAgainstScoreMessage(msg.payload, liveRoomId)
             continue
 
         # 点赞数
         if msg.method == 'WebcastLikeMessage':
-            unPackWebcastLikeMessage(msg.payload)
+            unPackWebcastLikeMessage(msg.payload, liveRoomId)
             continue
 
         # 成员进入直播间消息
         if msg.method == 'WebcastMemberMessage':
-            unPackWebcastMemberMessage(msg.payload)
+            unPackWebcastMemberMessage(msg.payload, liveRoomId)
             continue
 
         # 礼物消息
         if msg.method == 'WebcastGiftMessage':
-            unPackWebcastGiftMessage(msg.payload)
+            unPackWebcastGiftMessage(msg.payload, liveRoomId)
             continue
 
         # 聊天消息
         if msg.method == 'WebcastChatMessage':
-            unPackWebcastChatMessage(msg.payload)
+            unPackWebcastChatMessage(msg.payload, liveRoomId)
             continue
 
         # 联谊会消息
         if msg.method == 'WebcastSocialMessage':
-            unPackWebcastSocialMessage(msg.payload)
+            unPackWebcastSocialMessage(msg.payload, liveRoomId)
             continue
 
         # 房间用户发送消息
         if msg.method == 'WebcastRoomUserSeqMessage':
-            unPackWebcastRoomUserSeqMessage(msg.payload)
+            unPackWebcastRoomUserSeqMessage(msg.payload, liveRoomId)
             continue
 
         # 更新粉丝票
         if msg.method == 'WebcastUpdateFanTicketMessage':
-            unPackWebcastUpdateFanTicketMessage(msg.payload)
+            unPackWebcastUpdateFanTicketMessage(msg.payload, liveRoomId)
             continue
 
         # 公共文本消息
         if msg.method == 'WebcastCommonTextMessage':
-            unPackWebcastCommonTextMessage(msg.payload)
+            unPackWebcastCommonTextMessage(msg.payload, liveRoomId)
             continue
 
         # 商品改变消息
         if msg.method == 'WebcastProductChangeMessage':
-            WebcastProductChangeMessage(msg.payload)
+            WebcastProductChangeMessage(msg.payload, liveRoomId)
             continue
 
         # WebcastRoomStatsMessage
@@ -113,7 +111,7 @@ def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId):
         logging.info('[onMessage] [待解析方法' + msg.method + '等待解析～] [房间Id：' + liveRoomId + ']')
 
 
-def unPackWebcastCommonTextMessage(data):
+def unPackWebcastCommonTextMessage(data, liveRoomId):
     commonTextMessage = CommonTextMessage()
     commonTextMessage.ParseFromString(data)
     data = json_format.MessageToDict(commonTextMessage, preserving_proto_field_name=True)
@@ -122,7 +120,7 @@ def unPackWebcastCommonTextMessage(data):
     return data
 
 
-def WebcastProductChangeMessage(data):
+def WebcastProductChangeMessage(data, liveRoomId):
     commonTextMessage = ProductChangeMessage()
     commonTextMessage.ParseFromString(data)
     data = json_format.MessageToDict(commonTextMessage, preserving_proto_field_name=True)
@@ -130,7 +128,7 @@ def WebcastProductChangeMessage(data):
     logging.info('[WebcastProductChangeMessage] [] [房间Id：' + liveRoomId + '] | ' + log)
 
 
-def unPackWebcastUpdateFanTicketMessage(data):
+def unPackWebcastUpdateFanTicketMessage(data, liveRoomId):
     updateFanTicketMessage = UpdateFanTicketMessage()
     updateFanTicketMessage.ParseFromString(data)
     data = json_format.MessageToDict(updateFanTicketMessage, preserving_proto_field_name=True)
@@ -139,7 +137,7 @@ def unPackWebcastUpdateFanTicketMessage(data):
     return data
 
 
-def unPackWebcastRoomUserSeqMessage(data):
+def unPackWebcastRoomUserSeqMessage(data, liveRoomId):
     roomUserSeqMessage = RoomUserSeqMessage()
     roomUserSeqMessage.ParseFromString(data)
     data = json_format.MessageToDict(roomUserSeqMessage, preserving_proto_field_name=True)
@@ -148,7 +146,7 @@ def unPackWebcastRoomUserSeqMessage(data):
     return data
 
 
-def unPackWebcastSocialMessage(data):
+def unPackWebcastSocialMessage(data, liveRoomId):
     socialMessage = SocialMessage()
     socialMessage.ParseFromString(data)
     data = json_format.MessageToDict(socialMessage, preserving_proto_field_name=True)
@@ -158,7 +156,7 @@ def unPackWebcastSocialMessage(data):
 
 
 # 普通消息
-def unPackWebcastChatMessage(data):
+def unPackWebcastChatMessage(data, liveRoomId):
     GlobalVal.commit_num += 1
     chatMessage = ChatMessage()
     chatMessage.ParseFromString(data)
@@ -170,7 +168,7 @@ def unPackWebcastChatMessage(data):
 
 
 # 礼物消息
-def unPackWebcastGiftMessage(data):
+def unPackWebcastGiftMessage(data, liveRoomId):
     giftMessage = GiftMessage()
     giftMessage.ParseFromString(data)
     data = json_format.MessageToDict(giftMessage, preserving_proto_field_name=True)
@@ -198,7 +196,7 @@ def unPackWebcastGiftMessage(data):
 
 
 # xx成员进入直播间消息
-def unPackWebcastMemberMessage(data):
+def unPackWebcastMemberMessage(data, liveRoomId):
     global member_num
     memberMessage = MemberMessage()
     memberMessage.ParseFromString(data)
@@ -211,7 +209,7 @@ def unPackWebcastMemberMessage(data):
 
 
 # 点赞
-def unPackWebcastLikeMessage(data):
+def unPackWebcastLikeMessage(data, liveRoomId):
     likeMessage = LikeMessage()
     likeMessage.ParseFromString(data)
     data = json_format.MessageToDict(likeMessage, preserving_proto_field_name=True)
@@ -223,7 +221,7 @@ def unPackWebcastLikeMessage(data):
 
 
 # 解析WebcastMatchAgainstScoreMessage消息包体
-def unPackMatchAgainstScoreMessage(data):
+def unPackMatchAgainstScoreMessage(data, liveRoomId):
     matchAgainstScoreMessage = MatchAgainstScoreMessage()
     matchAgainstScoreMessage.ParseFromString(data)
     data = json_format.MessageToDict(matchAgainstScoreMessage, preserving_proto_field_name=True)
@@ -233,7 +231,7 @@ def unPackMatchAgainstScoreMessage(data):
 
 
 # 发送Ack请求
-def sendAck(ws, logId, internalExt):
+def sendAck(ws, logId, internalExt, liveRoomId):
     obj = PushFrame()
     obj.payloadType = 'ack'
     obj.logId = logId
@@ -277,7 +275,7 @@ def ping(ws, liveRoomId):
         time.sleep(10)
 
 
-def wssServerStart(wsurl, liveRoomId):
+def wssServerStart(wsurl, liveRoomId, ttwid):
     # websocket.enableTrace(False)
     h = {
         'cookie': 'ttwid=' + ttwid,
@@ -334,7 +332,7 @@ navigator = {{
     return "00000000"
 
 
-def wssServerStart(wsurl, liveRoomId):
+def wssServerStart(wsurl, liveRoomId, ttwid):
     global ws_instance
     h = {
         'cookie': 'ttwid=' + ttwid,
@@ -370,7 +368,7 @@ async def parseLiveRoomUrl(url, my_room_id):
         'user-agent': USER_AGENT
     }
     res = requests.get(url=url, headers=headers)
-    global ttwid, roomStore, liveRoomId, liveRoomTitle, live_stream_url
+    global liveRoomTitle, live_stream_url
     data = res.cookies.get_dict()
     ttwid = data['ttwid']
     res = res.text
@@ -449,7 +447,7 @@ async def parseLiveRoomUrl(url, my_room_id):
             wss_url = build_request_url(wss_url)
             # wssServerStart(wss_url)
 
-            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId))
+            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId, ttwid))
             rank_t.start()
             return LiveStatusResponse(
                 code=200,
