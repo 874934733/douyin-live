@@ -8,6 +8,7 @@ import signal
 import threading
 
 from config import LIVE_GIFT_LIST
+from src import live_rank
 from src.utils.logger import logger
 import re
 import time
@@ -387,7 +388,7 @@ async def parseLiveRoomUrl(url, my_room_id):
             logging.info(f"直播流FLV地址是: {res_stream_flv}")
             print(f"直播流FLV地址是: {res_stream_flv}")
             # 开始获取直播间排行
-            # live_rank.interval_rank(liveRoomId)
+            live_rank.interval_rank(liveRoomId)
 
             USER_UNIQUE_ID = get_user_unique_id()
             VERSION_CODE = 180800
