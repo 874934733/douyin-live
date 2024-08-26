@@ -9,6 +9,7 @@ import threading
 
 from config import LIVE_GIFT_LIST
 from src import live_rank
+from src.utils import http_send
 from src.utils.logger import logger
 import re
 import time
@@ -107,6 +108,7 @@ def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId, liveRoomTi
         if msg.method == 'WebcastRoomStatsMessage':
             print("WebcastRoomStatsMessage")
         logging.info('[onMessage] [待解析方法' + msg.method + '等待解析～] [房间Id：' + liveRoomId + ']')
+        http_send.sender(liveRoomId)
 
 
 def unPackWebcastCommonTextMessage(data, liveRoomId):
