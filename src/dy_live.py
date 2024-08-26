@@ -32,16 +32,13 @@ from proto.dy_pb2 import UpdateFanTicketMessage
 from proto.dy_pb2 import CommonTextMessage
 from proto.dy_pb2 import ProductChangeMessage
 
-# 直播信息全局变量
-liveRoomTitle = ''
-live_stream_url = ""
 # 记录抓取直播时间
 start_time = time.time()
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0'
 
 
-def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId):
+def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId, liveRoomTitle):
     # 相当于每一条消息
     wssPackage = PushFrame()
     # 将二进制序列化后的数据解析到此消息中
@@ -53,7 +50,7 @@ def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId):
     payloadPackage.ParseFromString(decompressed)
     # 发送ack包
     if payloadPackage.needAck:
-        sendAck(ws, logId, payloadPackage.internalExt, liveRoomId)
+        sendAck(ws, logId, payloadPackage.internalExt, liveRoomId, liveRoomTitle)
     for msg in payloadPackage.messagesList:
         # 反对分数消息
         if msg.method == 'WebcastMatchAgainstScoreMessage':
@@ -231,7 +228,7 @@ def unPackMatchAgainstScoreMessage(data, liveRoomId):
 
 
 # 发送Ack请求
-def sendAck(ws, logId, internalExt, liveRoomId):
+def sendAck(ws, logId, internalExt, liveRoomId, liveRoomTitle):
     obj = PushFrame()
     obj.payloadType = 'ack'
     obj.logId = logId
@@ -241,11 +238,11 @@ def sendAck(ws, logId, internalExt, liveRoomId):
     logging.info('[sendAck] [🌟发送Ack] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
 
 
-def onError(ws, error, liveRoomId):
-    logging.error('[onError] [webSocket Error事件] [房间Id：' + liveRoomId + ']')
+def onError(ws, error, liveRoomId, liveRoomTitle):
+    logging.error('[onError] [webSocket Error事件] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
 
 
-def onClose(ws, a, b, liveRoomId):
+def onClose(ws, liveRoomId, liveRoomTitle):
     # 统计最后的数据
     end_time = time.time()
     total_time = end_time - start_time
@@ -253,19 +250,19 @@ def onClose(ws, a, b, liveRoomId):
     logging.info(total_info)
     # 将消息发送到我们自己的服务器
     # ws_sender(total_info)
-    logging.info('[onClose] [webSocket Close事件] [房间Id：' + liveRoomId + ']')
+    logging.info('[onClose] [webSocket Close事件] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
     # 直播结束退出程序
     pid = os.getpid()  # 获取当前进程的PID
     os.kill(pid, signal.SIGTERM)
 
 
-def onOpen(ws, liveRoomId):
-    _thread.start_new_thread(ping, (ws, liveRoomId))
-    logger.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + ']')
+def onOpen(ws, liveRoomId, liveRoomTitle):
+    _thread.start_new_thread(ping, (ws, liveRoomId, liveRoomTitle))
+    logger.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
 
 
 # 发送ping心跳包
-def ping(ws, liveRoomId):
+def ping(ws, liveRoomId, liveRoomTitle):
     while True:
         obj = PushFrame()
         obj.payloadType = 'hb'
@@ -275,8 +272,7 @@ def ping(ws, liveRoomId):
         time.sleep(10)
 
 
-def wssServerStart(wsurl, liveRoomId, ttwid):
-    # websocket.enableTrace(False)
+def wssServerStart(wsurl, liveRoomId, ttwid, liveRoomTitle):
     h = {
         'cookie': 'ttwid=' + ttwid,
         'user-agent': USER_AGENT,
@@ -284,10 +280,10 @@ def wssServerStart(wsurl, liveRoomId, ttwid):
     logger.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
     ws = websocket.WebSocketApp(
-        wsurl, on_message=lambda ws, message: onMessage(ws, message, liveRoomId),
-        on_error=lambda ws, error: onError(ws, error, liveRoomId),
-        on_close=lambda ws: onClose(ws, liveRoomId),
-        on_open=lambda ws: onOpen(ws, liveRoomId),
+        wsurl, on_message=lambda ws, message: onMessage(ws, message, liveRoomId, liveRoomTitle),
+        on_error=lambda ws, error: onError(ws, error, liveRoomId, liveRoomTitle),
+        on_close=lambda ws: onClose(ws, liveRoomId, liveRoomTitle),
+        on_open=lambda ws: onOpen(ws, liveRoomId, liveRoomTitle),
         header=h
     )
     ws.run_forever()
@@ -332,25 +328,6 @@ navigator = {{
     return "00000000"
 
 
-def wssServerStart(wsurl, liveRoomId, ttwid):
-    global ws_instance
-    h = {
-        'cookie': 'ttwid=' + ttwid,
-        'user-agent': USER_AGENT,
-    }
-    logging.info(f'弹幕监听地址wsurl:{wsurl}')
-    # 创建一个长连接，并开始侦听消息
-    ws_instance = websocket.WebSocketApp(
-        wsurl,
-        on_message=lambda ws, message: onMessage(ws, message, liveRoomId),
-        on_error=lambda ws, error: onError(ws, error, liveRoomId),
-        on_close=lambda ws: onClose(ws, liveRoomId),
-        on_open=lambda ws: onOpen(ws, liveRoomId),
-        header=h
-    )
-    ws_instance.run_forever()
-
-
 async def parseLiveRoomUrl(url, my_room_id):
     """
     解析直播的弹幕websocket地址
@@ -368,7 +345,6 @@ async def parseLiveRoomUrl(url, my_room_id):
         'user-agent': USER_AGENT
     }
     res = requests.get(url=url, headers=headers)
-    global liveRoomTitle, live_stream_url
     data = res.cookies.get_dict()
     ttwid = data['ttwid']
     res = res.text
@@ -447,7 +423,7 @@ async def parseLiveRoomUrl(url, my_room_id):
             wss_url = build_request_url(wss_url)
             # wssServerStart(wss_url)
 
-            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId, ttwid))
+            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId, ttwid, liveRoomTitle))
             rank_t.start()
             return LiveStatusResponse(
                 code=200,
