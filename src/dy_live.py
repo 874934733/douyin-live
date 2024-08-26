@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import signal
+import threading
+
 from config import LIVE_GIFT_LIST
 from src.utils.logger import logger
 import re
@@ -14,7 +16,6 @@ import websocket
 import random, hashlib, jsengine
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from src.utils.ws_send import ws_sender
-from src import live_rank
 from src.utils.common import GlobalVal, LiveStatusResponse
 from protobuf_inspector.types import StandardParser
 from google.protobuf import json_format
@@ -32,7 +33,6 @@ from proto.dy_pb2 import CommonTextMessage
 from proto.dy_pb2 import ProductChangeMessage
 
 # 直播信息全局变量
-liveRoomId = ""
 ttwid = ""
 roomStore = ""
 liveRoomTitle = ''
@@ -43,7 +43,7 @@ start_time = time.time()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0'
 
 
-def onMessage(ws: websocket.WebSocketApp, message: bytes):
+def onMessage(ws: websocket.WebSocketApp, message: bytes, liveRoomId):
     # 相当于每一条消息
     wssPackage = PushFrame()
     # 将二进制序列化后的数据解析到此消息中
@@ -243,11 +243,11 @@ def sendAck(ws, logId, internalExt):
     logging.info('[sendAck] [🌟发送Ack] [房间Id：' + liveRoomId + '] ====> 房间标题【' + liveRoomTitle + '】')
 
 
-def onError(ws, error):
+def onError(ws, error, liveRoomId):
     logging.error('[onError] [webSocket Error事件] [房间Id：' + liveRoomId + ']')
 
 
-def onClose(ws, a, b):
+def onClose(ws, a, b, liveRoomId):
     # 统计最后的数据
     end_time = time.time()
     total_time = end_time - start_time
@@ -261,13 +261,13 @@ def onClose(ws, a, b):
     os.kill(pid, signal.SIGTERM)
 
 
-def onOpen(ws):
-    _thread.start_new_thread(ping, (ws,))
+def onOpen(ws, liveRoomId):
+    _thread.start_new_thread(ping, (ws, liveRoomId))
     logger.info('[onOpen] [webSocket Open事件] [房间Id：' + liveRoomId + ']')
 
 
 # 发送ping心跳包
-def ping(ws):
+def ping(ws, liveRoomId):
     while True:
         obj = PushFrame()
         obj.payloadType = 'hb'
@@ -277,7 +277,7 @@ def ping(ws):
         time.sleep(10)
 
 
-def wssServerStart(wsurl):
+def wssServerStart(wsurl, liveRoomId):
     # websocket.enableTrace(False)
     h = {
         'cookie': 'ttwid=' + ttwid,
@@ -286,8 +286,10 @@ def wssServerStart(wsurl):
     logger.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
     ws = websocket.WebSocketApp(
-        wsurl, on_message=onMessage, on_error=onError, on_close=onClose,
-        on_open=onOpen,
+        wsurl, on_message=lambda ws, message: onMessage(ws, message, liveRoomId),
+        on_error=lambda ws, error: onError(ws, error, liveRoomId),
+        on_close=lambda ws: onClose(ws, liveRoomId),
+        on_open=lambda ws: onOpen(ws, liveRoomId),
         header=h
     )
     ws.run_forever()
@@ -332,7 +334,7 @@ navigator = {{
     return "00000000"
 
 
-async def wssServerStart(wsurl):
+def wssServerStart(wsurl, liveRoomId):
     global ws_instance
     h = {
         'cookie': 'ttwid=' + ttwid,
@@ -341,8 +343,11 @@ async def wssServerStart(wsurl):
     logging.info(f'弹幕监听地址wsurl:{wsurl}')
     # 创建一个长连接，并开始侦听消息
     ws_instance = websocket.WebSocketApp(
-        wsurl, on_message=onMessage, on_error=onError, on_close=onClose,
-        on_open=onOpen,
+        wsurl,
+        on_message=lambda ws, message: onMessage(ws, message, liveRoomId),
+        on_error=lambda ws, error: onError(ws, error, liveRoomId),
+        on_close=lambda ws: onClose(ws, liveRoomId),
+        on_open=lambda ws: onOpen(ws, liveRoomId),
         header=h
     )
     ws_instance.run_forever()
@@ -442,7 +447,10 @@ async def parseLiveRoomUrl(url, my_room_id):
             }
             wss_url = f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?{'&'.join([f'{k}={v}' for k, v in webcast5_params.items()])}"
             wss_url = build_request_url(wss_url)
-            await wssServerStart(wss_url)
+            # wssServerStart(wss_url)
+
+            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId))
+            rank_t.start()
             return LiveStatusResponse(
                 code=200,
                 message="获取直播间信息成功",
