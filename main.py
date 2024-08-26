@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from distutils.command.config import config
@@ -9,7 +8,6 @@ import uvicorn
 from src.dy_live import parseLiveRoomUrl
 from src.live_rank import stop_interval_rank
 from src.utils.common import RoomIdRequest
-from src.utils.http_send import send_start
 
 # 创建FastAPI应用实例
 app = FastAPI()
@@ -27,11 +25,6 @@ async def receive_code(room_request: RoomIdRequest):
     logging.info(f"Received code: " + room_id)
     config.LIVE_ROOM_URL = f"https://live.douyin.com/{room_id}"
     logging.info(config.LIVE_ROOM_URL)
-    # 使用线程池执行同步的 init_global 函数
-    # await asyncio.get_running_loop().run_in_executor(executor, init_global(room_id))
-    # 使用线程池执行同步的 send_start 函数
-    # await asyncio.get_running_loop().run_in_executor(executor, send_start(room_id))
-    # 在config.py配置中修改直播地址: LIVE_ROOM_URL
     live_status = await parseLiveRoomUrl(config.LIVE_ROOM_URL, room_id)
     if live_status is not None:
         return live_status.dict()
@@ -47,7 +40,4 @@ async def stop_wss_server():
 
 
 if __name__ == '__main__':
-    # 在config.py配置中修改直播地址: LIVE_ROOM_URL
-    # dy_live.parseLiveRoomUrl(LIVE_ROOM_URL)
-    # 运行Flask应用
-    uvicorn.run(app, host="192.168.0.109", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8110)
