@@ -5,7 +5,7 @@ from distutils.command.config import config
 from fastapi import FastAPI
 import uvicorn
 
-from src.dy_live import parseLiveRoomUrl
+from src.dy_live import parseLiveRoomUrl, close_websocket
 from src.live_rank import stop_interval_rank
 from src.utils.common import RoomIdRequest
 
@@ -33,8 +33,10 @@ async def receive_code(room_request: RoomIdRequest):
 
 
 @app.post("/stop_wss_server")
-async def stop_wss_server():
-    # await stopWSServer()
+async def stop_wss_server(room_request: RoomIdRequest):
+    room_id = room_request.room_id
+    logging.info(f"Received code: " + room_id)
+    await close_websocket(room_id)
     await stop_interval_rank()
     return {"message": "直播已结束"}
 

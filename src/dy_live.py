@@ -36,7 +36,8 @@ from proto.dy_pb2 import ProductChangeMessage
 
 # 记录抓取直播时间
 start_time = time.time()
-
+# 存储WebSocket连接
+websocket_connections = {}
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0'
 
 
@@ -275,7 +276,7 @@ def ping(ws, liveRoomId, liveRoomTitle):
         time.sleep(10)
 
 
-def wssServerStart(wsurl, liveRoomId, ttwid, liveRoomTitle):
+def wssServerStart(wsurl, liveRoomId, ttwid, liveRoomTitle, my_room_id):
     h = {
         'cookie': 'ttwid=' + ttwid,
         'user-agent': USER_AGENT,
@@ -289,7 +290,16 @@ def wssServerStart(wsurl, liveRoomId, ttwid, liveRoomTitle):
         on_open=lambda ws: onOpen(ws, liveRoomId, liveRoomTitle),
         header=h
     )
+    websocket_connections[my_room_id] = ws
     ws.run_forever()
+
+
+async def close_websocket(my_room_id):
+    if my_room_id in websocket_connections:
+        websocket_connections[my_room_id].close()
+        logging.info(f"Closed WebSocket connection for room ID: {my_room_id}")
+    else:
+        logging.info(f"No WebSocket connection found for room ID: {my_room_id}")
 
 
 def get_user_unique_id():
@@ -373,6 +383,7 @@ async def parseLiveRoomUrl(url, my_room_id):
             print(f"主播账号信息: {live_room_info}")
             # 直播间id
             liveRoomId = res_room.group(1)
+            logging.info(f"直播间ID" + liveRoomId)
             # 获取m3u8直播流地址：m3u8直播比flv延迟2秒左右
             res_stream = re.search(r'hls_pull_url_map\\":(\{.*?})', res)
             res_stream_m3u8s = json.loads(res_stream.group(1).replace('\\"', '"'))
@@ -426,7 +437,7 @@ async def parseLiveRoomUrl(url, my_room_id):
             wss_url = build_request_url(wss_url)
             # wssServerStart(wss_url)
 
-            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId, ttwid, liveRoomTitle))
+            rank_t = threading.Thread(target=wssServerStart, args=(wss_url, liveRoomId, ttwid, liveRoomTitle, my_room_id))
             rank_t.start()
             return LiveStatusResponse(
                 code=200,
